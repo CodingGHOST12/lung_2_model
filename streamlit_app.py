@@ -111,6 +111,10 @@ def get_css():
             background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
         }
         
+        [data-testid="stSidebar"] * {
+            color: white !important;
+        }
+        
         @keyframes slideUp {
             from { opacity: 0; transform: translateY(30px); }
             to { opacity: 1; transform: translateY(0); }
@@ -224,17 +228,15 @@ with st.sidebar:
     st.markdown("# 🏥 **MediPredict AI**")
     st.markdown("### Professional Health Screening")
     
-    if st.button("🌙 Toggle Theme", key="theme"):
+    if st.button("🌙 Toggle Theme"):
         toggle_theme()
         st.rerun()
     
     st.markdown("---")
-    page = st.radio("Navigation", ["🏠 Home", "🔬 Screening", "ℹ️ About"], 
-                   label_visibility="collapsed")
-
-# Load theme indicator
-theme_emoji = "🌙 Dark" if st.session_state.theme == 'dark' else "☀️ Light'
-st.sidebar.caption(f"Theme: {theme_emoji}")
+    page = st.radio("Navigation", ["🏠 Home", "🔬 Screening", "ℹ️ About"])
+    
+    theme_text = "🌙 Dark" if st.session_state.theme == 'dark' else "☀️ Light"
+    st.caption(f"Theme: {theme_text}")
 
 # HOME PAGE
 if page == "🏠 Home":
@@ -287,11 +289,11 @@ elif page == "🔬 Screening":
         st.error("❌ Model files missing. Contact support.")
         st.stop()
     
-    # Reset form on page load
-    if page != st.session_state.get('current_page', ''):
+    # Reset form
+    if 'screening_page' not in st.session_state:
         st.session_state.form_submitted = False
         st.session_state.result = None
-    st.session_state.current_page = page
+        st.session_state.screening_page = True
     
     # Input form
     st.markdown('<div class="input-section">', unsafe_allow_html=True)
@@ -300,41 +302,41 @@ elif page == "🔬 Screening":
     col1, col2 = st.columns(2)
     
     with col1:
-        gender = st.selectbox("Gender", ["Male", "Female"], key="gender")
-        age = st.slider("Age", 18, 100, 40, key="age")
+        gender = st.selectbox("Gender", ["Male", "Female"])
+        age = st.slider("Age", 18, 100, 40)
         
         st.markdown("### 🚬 Lifestyle")
-        smoking = st.selectbox("Smoking", ["No", "Yes"], key="smoking")
-        alcohol = st.selectbox("Alcohol", ["No", "Yes"], key="alcohol")
-        peer_pressure = st.selectbox("Peer Pressure", ["No", "Yes"], key="peer")
+        smoking = st.selectbox("Smoking", ["No", "Yes"])
+        alcohol = st.selectbox("Alcohol", ["No", "Yes"])
+        peer_pressure = st.selectbox("Peer Pressure", ["No", "Yes"])
         
         st.markdown("### 🏥 Medical")
-        chronic_disease = st.selectbox("Chronic Disease", ["No", "Yes"], key="chronic")
-        allergy = st.selectbox("Allergies", ["No", "Yes"], key="allergy")
+        chronic_disease = st.selectbox("Chronic Disease", ["No", "Yes"])
+        allergy = st.selectbox("Allergies", ["No", "Yes"])
     
     with col2:
         st.markdown("### 🩺 Symptoms")
-        yellow_fingers = st.selectbox("Yellow Fingers", ["No", "Yes"], key="yellow")
-        anxiety = st.selectbox("Anxiety", ["No", "Yes"], key="anxiety")
-        fatigue = st.selectbox("Fatigue", ["No", "Yes"], key="fatigue")
+        yellow_fingers = st.selectbox("Yellow Fingers", ["No", "Yes"])
+        anxiety = st.selectbox("Anxiety", ["No", "Yes"])
+        fatigue = st.selectbox("Fatigue", ["No", "Yes"])
         
         st.markdown("### 🫁 Respiratory")
-        wheezing = st.selectbox("Wheezing", ["No", "Yes"], key="wheeze")
-        coughing = st.selectbox("Coughing", ["No", "Yes"], key="cough")
-        shortness_breath = st.selectbox("Shortness of Breath", ["No", "Yes"], key="breath")
-        swallowing = st.selectbox("Swallowing Difficulty", ["No", "Yes"], key="swallow")
-        chest_pain = st.selectbox("Chest Pain", ["No", "Yes"], key="chest")
+        wheezing = st.selectbox("Wheezing", ["No", "Yes"])
+        coughing = st.selectbox("Coughing", ["No", "Yes"])
+        shortness_breath = st.selectbox("Shortness of Breath", ["No", "Yes"])
+        swallowing = st.selectbox("Swallowing Difficulty", ["No", "Yes"])
+        chest_pain = st.selectbox("Chest Pain", ["No", "Yes"])
     
     st.markdown('</div>', unsafe_allow_html=True)
     
-    # SUBMIT BUTTON
+    # SUBMIT BUTTON (Only shows results after clicking)
     col1, col2, col3 = st.columns([2, 1, 2])
     with col2:
         if st.button("🚀 ANALYZE RISK", type="primary", use_container_width=True):
             with st.spinner("🔬 AI analyzing your health data..."):
                 time.sleep(1.5)
                 
-                # Prediction logic
+                # Prediction
                 data = pd.DataFrame([{
                     'GENDER': 1 if gender == 'Male' else 0,
                     'AGE': age,
@@ -353,7 +355,7 @@ elif page == "🔬 Screening":
                     'CHEST_PAIN': 1 if chest_pain == 'Yes' else 0
                 }])
                 
-                # Features (EXACTLY match training)
+                # Features (match training exactly)
                 data['RESPIRATORY'] = data['COUGHING'] + data['SHORTNESS_OF_BREATH'] + data['WHEEZING'] + data['CHEST_PAIN']
                 data['LIFESTYLE'] = data['SMOKING'] + data['ALCOHOL_CONSUMING']
                 data['SYMPTOMS'] = (data['YELLOW_FINGERS'] + data['CHRONIC_DISEASE'] + data['FATIGUE'] + 
@@ -373,7 +375,7 @@ elif page == "🔬 Screening":
             
             st.success("✅ Analysis complete!")
     
-    # RESULTS (Only show after submit)
+    # Results (ONLY after submit)
     if st.session_state.form_submitted and st.session_state.result:
         result, risk, confidence = st.session_state.result
         
@@ -389,11 +391,11 @@ elif page == "🔬 Screening":
             """, unsafe_allow_html=True)
             
             st.error("""
-            ### 🚨 IMMEDIATE ACTIONS REQUIRED:
-            - 🔴 **Consult oncologist immediately**
-            - 🔴 **Schedule CT scan/biopsy**
-            - 🔴 **Stop smoking completely**
-            - 🔴 **Prepare medical records**
+            ### 🚨 IMMEDIATE ACTIONS:
+            - 🔴 Consult oncologist immediately
+            - 🔴 Schedule CT scan/biopsy
+            - 🔴 Stop smoking completely
+            - 🔴 Prepare medical records
             """)
         else:
             st.markdown(f"""
@@ -406,10 +408,10 @@ elif page == "🔬 Screening":
             
             st.success("""
             ### ✅ HEALTH RECOMMENDATIONS:
-            - ✅ **Annual check-ups**
-            - ✅ **Healthy lifestyle**
-            - ✅ **Regular exercise**
-            - ✅ **Avoid risk factors**
+            - ✅ Annual check-ups
+            - ✅ Healthy lifestyle
+            - ✅ Regular exercise
+            - ✅ Avoid risk factors
             """)
         
         # Metrics
@@ -422,7 +424,7 @@ elif page == "🔬 Screening":
         st.markdown("### 🎯 Risk Gauge")
         st.progress(min(risk/100, 1.0))
         
-        # Report download
+        # Download report
         st.markdown("---")
         report_data = {
             'Date': pd.Timestamp.now().strftime('%Y-%m-%d %H:%M'),
@@ -436,7 +438,7 @@ elif page == "🔬 Screening":
         df_report = pd.DataFrame([report_data])
         csv = df_report.to_csv(index=False)
         st.download_button(
-            "📥 Download Medical Report",
+            "📥 Download Report",
             csv,
             f"medipredict_report_{pd.Timestamp.now().strftime('%Y%m%d_%H%M')}.csv",
             "text/csv"
@@ -455,26 +457,23 @@ elif page == "ℹ️ About":
     
     st.markdown("""
     ## 🎯 Mission
-    Democratizing access to AI-powered early disease detection worldwide.
+    Democratizing access to AI-powered early disease detection.
     
-    ## 🤖 Technology Stack
-    - **Algorithm**: XGBoost Ensemble
+    ## 🤖 Technology
+    - **Algorithm**: XGBoost Machine Learning
     - **Accuracy**: 89%+ validated
     - **Features**: 18 clinical parameters
     - **Preprocessing**: SMOTE balancing
     
-    ## ⚠️ Medical Disclaimer
-    **This is an educational tool only:**
+    ## ⚠️ Disclaimer
+    **Educational tool only:**
     - ❌ Not medical diagnosis
     - ❌ Not FDA approved
-    - ✅ For screening awareness only
-    - 🩺 Always consult physicians
-    
-    ## 📞 Support
-    **Email**: support@medipredict.ai
+    - ✅ Screening awareness only
+    - 🩺 Consult physicians always
     
     ---
-    © 2025 MediPredict AI | Professional Health Tech
+    © 2025 MediPredict AI
     """)
 
 # Footer
