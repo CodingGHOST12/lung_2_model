@@ -1,203 +1,102 @@
 import streamlit as st
-import pandas as pd
-import numpy as np
 import pickle
-import time
+import numpy as np
+import pandas as pd
 
-st.set_page_config(page_title="MediPredict AI", page_icon="🏥", layout="wide")
-
-# ============================
-# Load model and tools
-# ============================
+# -----------------------------
+# Load model and preprocessing
+# -----------------------------
 @st.cache_resource
-def load_models():
+def load_all():
+    with open("lung_cancer_model.pkl", "rb") as f:
+        model = pickle.load(f)
+    with open("scaler.pkl", "rb") as f:
+        scaler = pickle.load(f)
+    with open("label_encoder.pkl", "rb") as f:
+        label_encoder = pickle.load(f)
+    return model, scaler, label_encoder
+
+model, scaler, label_encoder = load_all()
+
+st.set_page_config(page_title="Lung Cancer Risk Predictor", layout="centered")
+
+st.title("Lung Cancer Risk Prediction")
+
+st.write("Fill the details below to estimate lung cancer risk.")
+
+# ---------------------------------------
+# Input form
+# ---------------------------------------
+with st.form("input_form"):
+    gender = st.selectbox("Gender", ["M", "F"])
+    age = st.number_input("Age", min_value=1, max_value=120, value=35)
+
+    smoking = st.selectbox("Smoking", [0, 1])
+    yellow_fingers = st.selectbox("Yellow Fingers", [0, 1])
+    anxiety = st.selectbox("Anxiety", [0, 1])
+    peer_pressure = st.selectbox("Peer Pressure", [0, 1])
+    chronic_disease = st.selectbox("Chronic Disease", [0, 1])
+    fatigue = st.selectbox("Fatigue", [0, 1])
+    allergy = st.selectbox("Allergy", [0, 1])
+    wheezing = st.selectbox("Wheezing", [0, 1])
+    alcohol_consumption = st.selectbox("Alcohol Consumption", [0, 1])
+    coughing = st.selectbox("Coughing", [0, 1])
+    shortness_of_breath = st.selectbox("Shortness of Breath", [0, 1])
+    swallowing_difficulty = st.selectbox("Swallowing Difficulty", [0, 1])
+    chest_pain = st.selectbox("Chest Pain", [0, 1])
+
+    submitted = st.form_submit_button("Predict Risk")
+
+# ---------------------------------------
+# Prediction Logic
+# ---------------------------------------
+if submitted:
     try:
-        model = pickle.load(open("lung_cancer_model.pkl", "rb"))
-        scaler = pickle.load(open("scaler.pkl", "rb"))
-        encoder = pickle.load(open("label_encoder.pkl", "rb"))
-        return model, scaler, encoder
-    except:
-        return None, None, None
+        gender_val = 1 if gender == "M" else 0
 
-model, scaler, encoder = load_models()
+        features = np.array([
+            gender_val, age, smoking, yellow_fingers, anxiety,
+            peer_pressure, chronic_disease, fatigue, allergy,
+            wheezing, alcohol_consumption, coughing,
+            shortness_of_breath, swallowing_difficulty, chest_pain
+        ]).reshape(1, -1)
 
-# ============================
-# Custom UI Styling
-# ============================
-st.markdown("""
-<style>
-body { font-family: 'Inter', sans-serif; }
-.stApp { background: linear-gradient(135deg, #5563DE 0%, #7939A8 100%); }
+        # scale
+        scaled_features = scaler.transform(features)
 
-.header {
-    padding: 2rem;
-    border-radius: 18px;
-    color: white;
-    text-align: center;
-    margin-bottom: 2rem;
-    background: rgba(255,255,255,0.15);
-    backdrop-filter: blur(10px);
-}
-.card {
-    background: rgba(255,255,255,0.15);
-    padding: 1.6rem;
-    border-radius: 16px;
-    color: white;
-}
-.result-high {
-    background: #e85959;
-    padding: 2rem;
-    border-radius: 16px;
-    text-align: center;
-    color: white;
-}
-.result-low {
-    background: #51cf66;
-    padding: 2rem;
-    border-radius: 16px;
-    text-align: center;
-    color: white;
-}
-</style>
-""", unsafe_allow_html=True)
+        # model prediction
+        prob = model.predict_proba(scaled_features)[0][1] * 100
 
-# ============================
-# Sidebar Navigation
-# ============================
-st.sidebar.title("MediPredict AI")
-page = st.sidebar.radio("Navigate", ["Home", "Health Screening", "About"])
+        # --------------------------
+        # Safe Progress Bar Handling
+        # --------------------------
+        progress_value = prob / 100
 
-# ============================
-# HOME PAGE
-# ============================
-if page == "Home":
-    st.markdown('<div class="header"><h1>MediPredict AI</h1><p>Smart Health Screening</p></div>', unsafe_allow_html=True)
+        try:
+            if progress_value is None or isinstance(progress_value, str):
+                progress_value = 0
+            if progress_value != progress_value:  # NaN
+                progress_value = 0
+            progress_value = float(progress_value)
+        except:
+            progress_value = 0
 
-    col1, col2, col3 = st.columns(3)
+        progress_value = max(0, min(progress_value, 1))
 
-    with col1:
-        st.markdown('<div class="card"><h2>89%+</h2><p>Model Accuracy</p></div>', unsafe_allow_html=True)
-    with col2:
-        st.markdown('<div class="card"><h2>Instant</h2><p>AI Predictions</p></div>', unsafe_allow_html=True)
-    with col3:
-        st.markdown('<div class="card"><h2>Private</h2><p>No Data Storage</p></div>', unsafe_allow_html=True)
+        st.subheader("Predicted Risk")
+        st.progress(progress_value)
 
-# ============================
-# SCREENING PAGE
-# ============================
-elif page == "Health Screening":
+        st.write(f"### Risk Level: **{prob:.2f}%**")
 
-    if model is None:
-        st.error("Model files missing. Upload lung_cancer_model.pkl, scaler.pkl, label_encoder.pkl")
-        st.stop()
+        # --------------------------
+        # Output message
+        # --------------------------
+        if prob < 20:
+            st.success("Risk appears low. Maintain healthy habits.")
+        elif prob < 50:
+            st.warning("Moderate risk. Consider lifestyle improvements and screening.")
+        else:
+            st.error("High risk detected. A medical consultation is recommended.")
 
-    st.markdown('<div class="header"><h1>Health Risk Assessment</h1><p>Provide details to begin analysis</p></div>', unsafe_allow_html=True)
-
-    col1, col2 = st.columns(2)
-
-    # ---- Left column ----
-    with col1:
-        gender = st.selectbox("Gender", ["Male", "Female"])
-        age = st.slider("Age", 18, 100, 40)
-
-        smoking = st.selectbox("Smoking", ["No", "Yes"])
-        alcohol = st.selectbox("Alcohol Use", ["No", "Yes"])
-        peer_pressure = st.selectbox("Peer Pressure", ["No", "Yes"])
-        chronic = st.selectbox("Chronic Disease", ["No", "Yes"])
-
-    # ---- Right column ----
-    with col2:
-        yellow = st.selectbox("Yellow Fingers", ["No", "Yes"])
-        anxiety = st.selectbox("Anxiety", ["No", "Yes"])
-        fatigue = st.selectbox("Fatigue", ["No", "Yes"])
-
-        wheezing = st.selectbox("Wheezing", ["No", "Yes"])
-        coughing = st.selectbox("Coughing", ["No", "Yes"])
-        shortness = st.selectbox("Shortness of Breath", ["No", "Yes"])
-        swallowing = st.selectbox("Swallowing Difficulty", ["No", "Yes"])
-        chest_pain = st.selectbox("Chest Pain", ["No", "Yes"])
-
-    st.markdown("---")
-
-    # ===== Predict Button =====
-    if st.button("Analyze My Risk", use_container_width=True):
-
-        with st.spinner("Analyzing your information..."):
-            time.sleep(1)
-
-            # Input data
-            data = pd.DataFrame([{
-                "GENDER": 1 if gender == "Male" else 0,
-                "AGE": age,
-                "SMOKING": 1 if smoking == "Yes" else 0,
-                "YELLOW_FINGERS": 1 if yellow == "Yes" else 0,
-                "ANXIETY": 1 if anxiety == "Yes" else 0,
-                "PEER_PRESSURE": 1 if peer_pressure == "Yes" else 0,
-                "CHRONIC_DISEASE": 1 if chronic == "Yes" else 0,
-                "FATIGUE": 1 if fatigue == "Yes" else 0,
-                "ALLERGY": 0,
-                "WHEEZING": 1 if wheezing == "Yes" else 0,
-                "ALCOHOL_CONSUMING": 1 if alcohol == "Yes" else 0,
-                "COUGHING": 1 if coughing == "Yes" else 0,
-                "SHORTNESS_OF_BREATH": 1 if shortness == "Yes" else 0,
-                "SWALLOWING_DIFFICULTY": 1 if swallowing == "Yes" else 0,
-                "CHEST_PAIN": 1 if chest_pain == "Yes" else 0,
-            }])
-
-            # Feature engineering
-            data["RESPIRATORY"] = (
-                data["COUGHING"] +
-                data["SHORTNESS_OF_BREATH"] +
-                data["WHEEZING"] +
-                data["CHEST_PAIN"]
-            )
-            data["LIFESTYLE"] = data["SMOKING"] + data["ALCOHOL_CONSUMING"]
-            data["SYMPTOMS"] = (
-                data["YELLOW_FINGERS"] + data["CHRONIC_DISEASE"] + data["FATIGUE"] +
-                data["WHEEZING"] + data["COUGHING"] + data["SHORTNESS_OF_BREATH"] +
-                data["SWALLOWING_DIFFICULTY"] + data["CHEST_PAIN"]
-            )
-
-            X_scaled = scaler.transform(data)
-            pred = model.predict(X_scaled)[0]
-            prob = model.predict_proba(X_scaled)[0][1] * 100
-            label = encoder.inverse_transform([pred])[0]
-
-            st.markdown("### Result Summary")
-
-            if label == "YES":
-                st.markdown(f"""
-                <div class='result-high'>
-                <h2>High Risk Detected</h2>
-                <h3>Risk Level: {prob:.1f}%</h3>
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.markdown(f"""
-                <div class='result-low'>
-                <h2>Low Risk</h2>
-                <h3>Risk Level: {prob:.1f}%</h3>
-                </div>
-                """, unsafe_allow_html=True)
-
-            st.progress(prob / 100)
-
-# ============================
-# ABOUT PAGE
-# ============================
-elif page == "About":
-    st.markdown('<div class="header"><h1>About MediPredict AI</h1></div>', unsafe_allow_html=True)
-    st.write("""
-### What this tool does
-- Uses machine learning to evaluate health patterns  
-- Gives instant screening feedback  
-- Works fully offline and doesn’t store any data  
-
-### Important Notes
-This is an educational tool and not a medical diagnostic system.  
-Always consult healthcare professionals for real diagnosis.
-""")
-
-st.markdown("---")
-st.caption("© 2025 MediPredict AI | Educational Use Only")
-
+    except Exception as e:
+        st.error("An error occurred while predicting. Please check inputs or files.")
