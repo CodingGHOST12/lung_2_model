@@ -1,6 +1,8 @@
-streamlit==1.29.0
-pandas==2.1.3
-numpy==1.24.3
-scikit-learn==1.3.2
-xgboost==2.0.2
-imbalanced-learn==0.11.0
+transformers
+torch
+accelerate
+sentencepiece
+gradio
+huggingface_hub
+bitsandbytes
+protobuf
